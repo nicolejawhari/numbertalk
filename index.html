@@ -320,6 +320,50 @@
             }
         }
 
+        // --- LOCAL STORAGE FUNCTIONS ---
+
+        /**
+         * Saves the current input values to the browser's localStorage.
+         */
+        function saveInputValues() {
+            localStorage.setItem('shaderCountA', currentCount1);
+            localStorage.setItem('shaderCountB', currentCount2);
+            localStorage.setItem('shaderColorB', colorToggleB.checked);
+            localStorage.setItem('shaderLineB', lineToggleB.checked);
+        }
+        
+        /**
+         * Loads saved input values from localStorage and updates the DOM elements.
+         */
+        function loadInputValues() {
+            const savedA = localStorage.getItem('shaderCountA');
+            const savedB = localStorage.getItem('shaderCountB');
+            const savedColorB = localStorage.getItem('shaderColorB');
+            const savedLineB = localStorage.getItem('shaderLineB');
+
+            if (savedA !== null) {
+                currentCount1 = parseInt(savedA, 10);
+                shadeInput1.value = currentCount1;
+            }
+            if (savedB !== null) {
+                currentCount2 = parseInt(savedB, 10);
+                shadeInput2.value = currentCount2;
+            }
+            // Load toggle states
+            if (savedColorB !== null) {
+                colorToggleB.checked = (savedColorB === 'true');
+            }
+            if (savedLineB !== null) {
+                lineToggleB.checked = (savedLineB === 'true');
+            }
+            
+            // Manually update display text based on loaded values
+            shadeCountDisplay1.textContent = `(${currentCount1})`;
+            currentInputCount1.textContent = currentCount1;
+            shadeCountDisplay2.textContent = `(${currentCount2})`;
+            currentInputCount2.textContent = currentCount2;
+        }
+
 
         /**
          * Clears all existing grids and generates the required visualization based on input values.
@@ -334,6 +378,9 @@
             const colorB = colorToggleB.checked ? COLOR_ORANGE_HEX : COLOR_TEAL_HEX;
             const startBOnNewLine = lineToggleB.checked; 
 
+            // Save the current state before rendering
+            saveInputValues();
+
             // --- RENDER ALL GRIDS ---
             const mainWrapper = document.createElement('div');
             mainWrapper.classList.add('flex', 'flex-wrap', 'justify-start', 'gap-3', 'w-full');
@@ -343,20 +390,12 @@
             renderInputGrids(countA, COLOR_TEAL_HEX, mainWrapper);
 
             // 2. Apply Conditional Line Break
-            // A break is needed if:
-            // a) User toggled the new line ON (startBOnNewLine)
-            // b) Input A was rendered as a thousands block (>= 1000)
-            // c) Input B is being rendered as a thousands block (>= 1000)
-            
             const isATreatedAsBlock = countA >= 1000;
             const isBTreatedAsBlock = countB >= 1000; 
-
             const shouldForceBreak = startBOnNewLine || isATreatedAsBlock || isBTreatedAsBlock;
             
             if (shouldForceBreak) {
-                // Insert a full-width element to force the following items to wrap to the next line
                 const breaker = document.createElement('div');
-                // w-full forces wrap; mt-6 provides vertical space before B starts.
                 breaker.classList.add('w-full', 'h-0', 'mt-6'); 
                 mainWrapper.appendChild(breaker);
             }
@@ -385,7 +424,7 @@
                 currentInputCount2.textContent = clampedValue;
             }
 
-            // Trigger the grid update
+            // Trigger the grid update (which includes saving)
             updateGrids();
         }
         
@@ -393,7 +432,6 @@
          * Checks for the URL query parameter to enable display mode.
          */
         function checkDisplayMode() {
-            // Check for the query parameter ?display=true
             const urlParams = new URLSearchParams(window.location.search);
             if (urlParams.get('display') === 'true') {
                 
@@ -413,17 +451,20 @@
         }
 
 
-        // --- Initialization ---
+        // --- Initialization Sequence ---
         
-        // 1. Set event listeners
+        // 1. Load any previously saved numbers and toggle states
+        loadInputValues();
+
+        // 2. Set event listeners for real-time saving
         shadeInput1.addEventListener('input', (e) => handleInput(e, 1));
         shadeInput2.addEventListener('input', (e) => handleInput(e, 2));
         // The toggles use inline onchange="updateGrids()"
 
-        // 2. Check for display mode BEFORE rendering
+        // 3. Check for display mode and apply visual changes
         checkDisplayMode();
         
-        // 3. Expose updateGrids to the window for inline calls and run initial shading
+        // 4. Render the grids based on the loaded (or default) values
         updateGrids();
     </script>
 </body>
