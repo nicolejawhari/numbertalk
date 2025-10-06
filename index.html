@@ -1,0 +1,400 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Thousands Grid Shader - Dual Input</title>
+    <!-- Load Tailwind CSS for modern styling -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        /* ====================================
+           CSS STYLES 
+           (Use this section for your CSS slot)
+           ==================================== */
+        
+        /* Basic reset and font for readability */
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #f9fafb; /* bg-gray-50 */
+        }
+        
+        /* Ensures the grid cells maintain aspect ratio */
+        .grid-cell {
+            aspect-ratio: 1 / 1;
+            transition: background-color 0.2s;
+            /* Default unshaded color */
+            background-color: #e5e7eb; /* bg-gray-200/80 */
+        }
+        
+        /* Input focus color to match theme */
+        .input-focus:focus {
+            border-color: #14b8a6; /* border-teal-500 */
+            box-shadow: 0 0 0 3px rgba(20, 184, 166, 0.4); /* ring-teal-500 */
+        }
+    </style>
+</head>
+<body class="min-h-screen p-4 sm:p-8 flex flex-col items-center justify-start">
+
+    <!-- ====================================
+         HTML STRUCTURE 
+         (Use this section for your HTML slot)
+         ==================================== -->
+
+    <div id="app-container" class="w-full max-w-4xl bg-white p-6 sm:p-8 rounded-xl shadow-2xl transition-all duration-300 mb-8">
+        
+        <header class="text-center mb-6">
+            <h1 class="text-3xl font-extrabold text-gray-900">
+                Thousands Grid Shader (Dual Input)
+            </h1>
+            <p class="text-sm text-gray-500 mt-1">
+                Both inputs handle numbers up to 10,000, grouped in thousands.
+            </p>
+        </header>
+
+        <!-- DUAL INPUT CONTROLS -->
+        <div id="input-controls" class="flex flex-col md:flex-row justify-center gap-6">
+            
+            <!-- Input 1 (Up to 10,000) -->
+            <div class="flex-1 bg-gray-50 p-4 rounded-lg border border-gray-200">
+                <label for="shadeInput1" class="block text-lg font-bold text-teal-700 mb-2">
+                    Input A <span id="shadeCountDisplay1" class="font-extrabold">(42)</span>
+                </label>
+                
+                <input
+                    id="shadeInput1"
+                    type="number"
+                    min="0"
+                    max="10000"
+                    value="42"
+                    class="w-full p-3 border-2 border-gray-300 rounded-lg shadow-sm text-xl text-center font-mono transition-all duration-150 input-focus"
+                    placeholder="Enter A (0-10000)"
+                />
+                <p class="text-xs text-gray-400 mt-2 text-right">
+                    Current A: <span id="currentInputCount1">42</span> / 10000
+                </p>
+            </div>
+
+            <!-- Input 2 (Up to 10,000) -->
+            <div class="flex-1 bg-gray-50 p-4 rounded-lg border border-gray-200">
+                <label for="shadeInput2" class="block text-lg font-bold text-teal-700 mb-2">
+                    Input B <span id="shadeCountDisplay2" class="font-extrabold">(56)</span>
+                </label>
+                
+                <input
+                    id="shadeInput2"
+                    type="number"
+                    min="0"
+                    max="10000"
+                    value="56"
+                    class="w-full p-3 border-2 border-gray-300 rounded-lg shadow-sm text-xl text-center font-mono transition-all duration-150 input-focus"
+                    placeholder="Enter B (0-10000)"
+                />
+                <p class="text-xs text-gray-400 mt-2 text-right">
+                    Current B: <span id="currentInputCount2">56</span> / 10000
+                </p>
+
+                <!-- COLOR TOGGLE -->
+                <div class="flex items-center mt-3">
+                    <input id="colorToggleB" type="checkbox" class="h-4 w-4 text-orange-600 rounded focus:ring-orange-500 border-gray-300" onchange="updateGrids()">
+                    <label for="colorToggleB" class="ml-2 block text-sm font-medium text-gray-700">
+                        Shade with Orange
+                    </label>
+                </div>
+                
+                <!-- NEW LINE TOGGLE -->
+                <div class="flex items-center mt-2">
+                    <input id="lineToggleB" type="checkbox" class="h-4 w-4 text-teal-600 rounded focus:ring-teal-500 border-gray-300" onchange="updateGrids()">
+                    <label for="lineToggleB" class="ml-2 block text-sm font-medium text-gray-700">
+                        Start Input B on new line
+                    </label>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Grid Container: This will hold all the dynamically generated grids -->
+    <div id="grid-container" class="w-full max-w-6xl p-4">
+        <!-- Grids will be generated here by JavaScript -->
+    </div>
+
+    <!-- ====================================
+         JAVASCRIPT LOGIC 
+         (Use this section for your JS slot)
+         ==================================== -->
+    <script>
+        const GRID_ROWS = 10;
+        const GRID_COLS = 10;
+        const MAX_GRID_SIZE = GRID_ROWS * GRID_COLS;
+        const MAX_INPUT_A = 10000;
+        const MAX_INPUT_B = 10000; 
+
+        // Color Constants
+        const COLOR_TEAL_HEX = '#0d9488';   // Teal 600 (for Input A default and B when unchecked)
+        const COLOR_ORANGE_HEX = '#fb923c'; // Orange 400 (Slightly Softer Orange for Input B when checked)
+
+        const gridContainer = document.getElementById('grid-container');
+        
+        // Input 1 Elements
+        const shadeInput1 = document.getElementById('shadeInput1');
+        const shadeCountDisplay1 = document.getElementById('shadeCountDisplay1');
+        const currentInputCount1 = document.getElementById('currentInputCount1');
+
+        // Input 2 Elements
+        const shadeInput2 = document.getElementById('shadeInput2');
+        const shadeCountDisplay2 = document.getElementById('shadeCountDisplay2');
+        const currentInputCount2 = document.getElementById('currentInputCount2');
+
+        // Toggle Elements
+        const colorToggleB = document.getElementById('colorToggleB');
+        const lineToggleB = document.getElementById('lineToggleB'); 
+
+        let currentCount1 = parseInt(shadeInput1.value, 10);
+        let currentCount2 = parseInt(shadeInput2.value, 10);
+        
+        // Classes for the special 1000 block (reduced prominence)
+        const THOUSAND_WRAPPER_CLASSES = [
+            'flex-none', 'shadow-md', 'rounded-xl', 'bg-gray-100', 
+            'border-2', 'border-gray-500', 
+            'w-full', 'sm:w-[48%]', 'md:w-[18%]' // Allows 5 blocks per row on desktop
+        ];
+        
+        /**
+         * Clamps the input value between 0 and a custom max.
+         * @param {string} value - The raw input value.
+         * @param {number} max - The maximum allowed value.
+         * @returns {number} The clamped and parsed number.
+         */
+        function clampValue(value, max) {
+            let num = parseInt(value, 10);
+            if (isNaN(num) || num < 0) {
+                num = 0;
+            } else if (num > max) {
+                num = max;
+            }
+            return num;
+        }
+
+        /**
+         * Calculates the required shading counts for a given total (up to 1000).
+         * This function is used for remainders and Input B.
+         * @param {number} totalCount - The total number of boxes to shade (0-1000).
+         * @returns {Array<{count: number}>} Array of objects with shading count for each grid.
+         */
+        function calculateGridData(totalCount) {
+            const fullGrids = Math.floor(totalCount / 100);
+            const remainder = totalCount % 100;
+            
+            const gridsToRender = [];
+            
+            // 1. Full grids (Hundreds place)
+            for (let i = 0; i < fullGrids; i++) {
+                gridsToRender.push({ count: 100 });
+            }
+
+            // 2. Remainder grid (Tens/Ones place)
+            // Show the remainder grid if remainder > 0 OR if totalCount is 0.
+            if (remainder > 0 || totalCount === 0) {
+                gridsToRender.push({ count: remainder });
+            }
+            
+            return gridsToRender;
+        }
+
+        /**
+         * Generates and shades a single 10x10 grid.
+         * @param {number} shadeCount - The number of cells to shade (0-100).
+         * @param {boolean} isCompact - If true, uses compact styling for thousands blocks.
+         * @param {string} shadedColor - The hex code for the shaded cells.
+         * @returns {HTMLElement} The created grid wrapper element.
+         */
+        function createAndS_hadeGrid(shadeCount, isCompact = false, shadedColor = COLOR_TEAL_HEX) {
+            const gridWrapper = document.createElement('div');
+            
+            // Apply size based on compaction flag
+            if (isCompact) {
+                gridWrapper.classList.add('p-px'); 
+            } else {
+                 // Standard size: 5 per row for normal flow
+                gridWrapper.classList.add('grid-panel', 'p-3', 'bg-white', 'rounded-xl', 'shadow-lg', 'w-full', 'sm:w-[31%]', 'md:w-[18%]', 'border-2', 'border-black'); 
+            }
+
+            const innerGrid = document.createElement('div');
+            // Use gap-px for tight packing in compact mode
+            const gapClass = isCompact ? 'gap-px' : 'gap-0.5';
+            innerGrid.classList.add('grid', gapClass, 'w-full', 'aspect-square', 'p-px', 'bg-gray-100', 'rounded-sm'); 
+            innerGrid.style.gridTemplateColumns = `repeat(${GRID_COLS}, minmax(0, 1fr)`;
+
+            for (let standardIndex = 0; standardIndex < MAX_GRID_SIZE; standardIndex++) {
+                const cell = document.createElement('div');
+                // Use border-none in compact mode for a cleaner look
+                const cellBorderClass = isCompact ? 'border-none' : 'border-gray-300/50';
+
+                cell.classList.add('grid-cell', 'rounded-sm', 'border', cellBorderClass);
+                
+                // Rotational Shading Logic (remains unchanged)
+                const r = Math.floor(standardIndex / GRID_COLS);
+                const c = standardIndex % GRID_COLS;
+                const cellsInPrecedingColumns = c * GRID_ROWS; 
+                const positionInColumn = (GRID_ROWS - 1) - r; 
+                const rotatedShadingIndex = cellsInPrecedingColumns + positionInColumn;
+                
+                const isShaded = rotatedShadingIndex < shadeCount;
+
+                if (isShaded) {
+                    // Apply dynamic color via inline style
+                    cell.style.backgroundColor = shadedColor;
+                }
+                
+                innerGrid.appendChild(cell);
+            }
+            
+            gridWrapper.appendChild(innerGrid);
+            return gridWrapper;
+        }
+
+        /**
+         * Generates a single thousands block (10 grids) with compact sizing (5x2 layout).
+         */
+        const renderSingleThousandsBlock = (shadedColor = COLOR_TEAL_HEX) => {
+            const blockWrapper = document.createElement('div');
+            blockWrapper.classList.add(...THOUSAND_WRAPPER_CLASSES);
+            
+            // This inner container forces the 5x2 layout for the 10 grids
+            const innerGridContainer = document.createElement('div');
+            
+            // Using CSS Grid to explicitly define 5 columns, ensuring 5 grids per row.
+            innerGridContainer.classList.add('grid', 'gap-1', 'p-1'); 
+            innerGridContainer.style.gridTemplateColumns = `repeat(5, 1fr)`;
+            
+            blockWrapper.appendChild(innerGridContainer);
+            
+            // Render 10 full grids (1000), using the compact flag and dynamic color
+            for (let i = 0; i < 10; i++) {
+                innerGridContainer.appendChild(createAndS_hadeGrid(100, true, shadedColor));
+            }
+            return blockWrapper;
+        };
+
+
+        /**
+         * Renders the grid visualization for a single input, handling thousands blocks.
+         * @param {number} count - The number to shade (0-10000).
+         * @param {string} color - The hex color for the shading.
+         * @param {HTMLElement} container - The main wrapper element to append grids to.
+         */
+        function renderInputGrids(count, color, container) {
+            const isTooLarge = count > 1000;
+
+            if (isTooLarge) {
+                // Thousands Blocks Mode (> 1000)
+                const fullThousands = Math.floor(count / 1000);
+                const remainder = count % 1000;
+                
+                // 1. Render Thousands Blocks
+                for (let i = 0; i < fullThousands; i++) {
+                    container.appendChild(renderSingleThousandsBlock(color));
+                }
+
+                // 2. Render Remainder (0-999) in standard size
+                if (remainder > 0) { 
+                    const dataRemainder = calculateGridData(remainder);
+                    dataRemainder.forEach(gridData => {
+                        container.appendChild(createAndS_hadeGrid(gridData.count, false, color));
+                    });
+                }
+            } else {
+                // Standard or Isolated 1000 Block Mode (<= 1000)
+                const data = calculateGridData(count);
+                if (count === 1000) { 
+                    // Exact 1000 is rendered as a single compact block
+                    container.appendChild(renderSingleThousandsBlock(color));
+                } else {
+                    // Less than 1000 (Standard Grids)
+                    data.forEach(gridData => {
+                        container.appendChild(createAndS_hadeGrid(gridData.count, false, color));
+                    });
+                }
+            }
+        }
+
+
+        /**
+         * Clears all existing grids and generates the required visualization based on input values.
+         */
+        window.updateGrids = function() {
+            const countA = currentCount1;
+            const countB = currentCount2;
+            
+            gridContainer.innerHTML = ''; 
+
+            // Determine Input B's color and line break preference
+            const colorB = colorToggleB.checked ? COLOR_ORANGE_HEX : COLOR_TEAL_HEX;
+            const startBOnNewLine = lineToggleB.checked; 
+
+            // --- RENDER ALL GRIDS ---
+            const mainWrapper = document.createElement('div');
+            mainWrapper.classList.add('flex', 'flex-wrap', 'justify-start', 'gap-3', 'w-full');
+            gridContainer.appendChild(mainWrapper);
+
+            // 1. Render Input A's visualization (Always TEAL)
+            renderInputGrids(countA, COLOR_TEAL_HEX, mainWrapper);
+
+            // 2. Apply Conditional Line Break
+            // A break is needed if:
+            // a) User toggled the new line ON (startBOnNewLine)
+            // b) Input A was rendered as a thousands block (>= 1000)
+            // c) Input B is being rendered as a thousands block (>= 1000)
+            
+            const isATreatedAsBlock = countA >= 1000;
+            const isBTreatedAsBlock = countB >= 1000; 
+
+            const shouldForceBreak = startBOnNewLine || isATreatedAsBlock || isBTreatedAsBlock;
+            
+            if (shouldForceBreak) {
+                // Insert a full-width element to force the following items to wrap to the next line
+                const breaker = document.createElement('div');
+                // w-full forces wrap; mt-6 provides vertical space before B starts.
+                breaker.classList.add('w-full', 'h-0', 'mt-6'); 
+                mainWrapper.appendChild(breaker);
+            }
+
+            // 3. Render Input B's visualization (Toggled Color)
+            renderInputGrids(countB, colorB, mainWrapper);
+        }
+        
+        /**
+         * Event handler for the input fields.
+         */
+        function handleInput(event, inputNumber) {
+            const max = inputNumber === 1 ? MAX_INPUT_A : MAX_INPUT_B;
+            const clampedValue = clampValue(event.target.value, max);
+            
+            // Set the input element's value to the clamped number
+            event.target.value = clampedValue;
+
+            if (inputNumber === 1) {
+                currentCount1 = clampedValue;
+                shadeCountDisplay1.textContent = `(${clampedValue})`;
+                currentInputCount1.textContent = clampedValue;
+            } else {
+                currentCount2 = clampedValue;
+                shadeCountDisplay2.textContent = `(${clampedValue})`;
+                currentInputCount2.textContent = clampedValue;
+            }
+
+            // Trigger the grid update
+            updateGrids();
+        }
+
+        // --- Initialization ---
+        
+        // 1. Set event listeners
+        shadeInput1.addEventListener('input', (e) => handleInput(e, 1));
+        shadeInput2.addEventListener('input', (e) => handleInput(e, 2));
+        // The toggles use inline onchange="updateGrids()"
+
+        // 2. Expose updateGrids to the window for inline calls and run initial shading
+        updateGrids();
+    </script>
+</body>
+</html>
