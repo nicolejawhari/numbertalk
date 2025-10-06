@@ -133,7 +133,10 @@
         const COLOR_ORANGE_HEX = '#fb923c'; // Orange 400 (Slightly Softer Orange for Input B when checked)
 
         const gridContainer = document.getElementById('grid-container');
-        
+        const appContainer = document.getElementById('app-container'); // Reference to the main content box
+        const headerElement = document.querySelector('header');         // Reference to the header (title/subtitle)
+        const inputControls = document.getElementById('input-controls'); // Reference to input fields
+
         // Input 1 Elements
         const shadeInput1 = document.getElementById('shadeInput1');
         const shadeCountDisplay1 = document.getElementById('shadeCountDisplay1');
@@ -385,6 +388,30 @@
             // Trigger the grid update
             updateGrids();
         }
+        
+        /**
+         * Checks for the URL query parameter to enable display mode.
+         */
+        function checkDisplayMode() {
+            // Check for the query parameter ?display=true
+            const urlParams = new URLSearchParams(window.location.search);
+            if (urlParams.get('display') === 'true') {
+                
+                // 1. Hide the header (Title/Subtitle)
+                headerElement.classList.add('hidden'); 
+
+                // 2. Hide the entire input control block
+                inputControls.classList.add('hidden');
+                
+                // 3. Target the main application container to remove its visual elements
+                appContainer.classList.remove('bg-white', 'shadow-2xl', 'p-6', 'sm:p-8', 'mb-8', 'max-w-4xl'); 
+                appContainer.classList.add('bg-transparent', 'shadow-none', 'p-0', 'mb-0', 'max-w-7xl'); 
+                
+                // 4. Ensure the grids themselves use the full available width
+                gridContainer.classList.remove('max-w-6xl');
+            }
+        }
+
 
         // --- Initialization ---
         
@@ -393,7 +420,10 @@
         shadeInput2.addEventListener('input', (e) => handleInput(e, 2));
         // The toggles use inline onchange="updateGrids()"
 
-        // 2. Expose updateGrids to the window for inline calls and run initial shading
+        // 2. Check for display mode BEFORE rendering
+        checkDisplayMode();
+        
+        // 3. Expose updateGrids to the window for inline calls and run initial shading
         updateGrids();
     </script>
 </body>
