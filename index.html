@@ -128,6 +128,21 @@
                     <p class="text-xs text-gray-400 mt-2 text-right">
                         Current A: <span id="currentInputCount1">0</span> / 100000
                     </p>
+
+                    <!-- MULTIPLIER TOGGLE & INPUT -->
+                    <div class="mt-4 pt-3 border-t border-gray-200">
+                        <div class="flex items-center mb-2">
+                            <input id="enableMultiplier" type="checkbox" class="h-4 w-4 text-teal-600 rounded focus:ring-teal-500 border-gray-300" onchange="updateGrids()">
+                            <label for="enableMultiplier" class="ml-2 block text-sm font-bold text-gray-700">
+                                Multiply Input A
+                            </label>
+                        </div>
+                        
+                        <div id="multiplierContainer" class="hidden flex items-center gap-2 bg-gray-100 p-2 rounded">
+                            <label for="multiplierInput1" class="text-sm font-bold text-gray-700">Multiply by:</label>
+                            <input id="multiplierInput1" type="number" min="1" max="10" value="1" class="w-16 p-1 border border-gray-300 rounded text-center text-lg font-bold text-teal-700" onchange="updateGrids()">
+                        </div>
+                    </div>
                 </div>
 
                 <!-- Input 2 -->
@@ -217,6 +232,9 @@
         const shadeInput1 = document.getElementById('shadeInput1');
         const shadeCountDisplay1 = document.getElementById('shadeCountDisplay1');
         const currentInputCount1 = document.getElementById('currentInputCount1');
+        const multiplierInput1 = document.getElementById('multiplierInput1'); 
+        const multiplierContainer = document.getElementById('multiplierContainer'); // NEW
+        const enableMultiplier = document.getElementById('enableMultiplier'); // NEW Toggle
 
         const shadeInput2 = document.getElementById('shadeInput2');
         const shadeCountDisplay2 = document.getElementById('shadeCountDisplay2');
@@ -242,6 +260,13 @@
             } else if (num > max) {
                 num = max;
             }
+            return num;
+        }
+
+        function clampMultiplier(value) {
+            let num = parseInt(value, 10);
+            if (isNaN(num) || num < 1) return 1;
+            if (num > 10) return 10;
             return num;
         }
 
@@ -341,7 +366,7 @@
                 return;
             }
 
-            // --- EXISTING LOGIC (for 1 - 9999, 10001+, etc) ---
+            // --- EXISTING LOGIC ---
             const isTooLarge = count > 1000;
 
             if (isTooLarge) {
@@ -375,6 +400,8 @@
         function saveInputValues() {
             localStorage.setItem('shaderCountA', currentCount1);
             localStorage.setItem('shaderCountB', currentCount2);
+            localStorage.setItem('shaderMultA', multiplierInput1.value);
+            localStorage.setItem('shaderEnableMult', enableMultiplier.checked); // Save toggle state
             localStorage.setItem('shaderColorB', colorToggleB.checked);
             localStorage.setItem('shaderLineB', lineToggleB.checked);
             localStorage.setItem('shaderHideInputs', hideInputsToggle.checked);
@@ -383,6 +410,8 @@
         function loadInputValues() {
             const savedA = localStorage.getItem('shaderCountA');
             const savedB = localStorage.getItem('shaderCountB');
+            const savedMultA = localStorage.getItem('shaderMultA');
+            const savedEnableMult = localStorage.getItem('shaderEnableMult');
             const savedColorB = localStorage.getItem('shaderColorB');
             const savedLineB = localStorage.getItem('shaderLineB');
             const savedHideInputs = localStorage.getItem('shaderHideInputs');
@@ -394,6 +423,16 @@
             if (savedB !== null) {
                 currentCount2 = parseInt(savedB, 10);
                 shadeInput2.value = currentCount2;
+            }
+            // Load Multiplier Settings
+            if (savedMultA !== null) multiplierInput1.value = savedMultA;
+            if (savedEnableMult !== null) {
+                enableMultiplier.checked = (savedEnableMult === 'true');
+                if(enableMultiplier.checked) {
+                    multiplierContainer.classList.remove('hidden');
+                } else {
+                    multiplierContainer.classList.add('hidden');
+                }
             }
             
             if (savedColorB !== null) colorToggleB.checked = (savedColorB === 'true');
@@ -428,7 +467,7 @@
             const isDisplayMode = isUrlLocked || hideInputsToggle.checked;
             
             if (isDisplayMode) {
-                navBar.classList.add('hidden'); // Hide Nav
+                navBar.classList.add('hidden'); 
                 headerElement.classList.add('hidden'); 
                 inputControls.classList.add('hidden');
                 appContainer.classList.remove('bg-white', 'shadow-2xl', 'p-6', 'sm:p-8', 'mb-8', 'max-w-4xl'); 
@@ -437,7 +476,7 @@
                 exitDisplayButton.classList.remove('hidden');
                 if (isUrlLocked) hideInputsToggle.disabled = true;
             } else {
-                navBar.classList.remove('hidden'); // Show Nav
+                navBar.classList.remove('hidden'); 
                 headerElement.classList.remove('hidden'); 
                 inputControls.classList.remove('hidden');
                 appContainer.classList.add('bg-white', 'shadow-2xl', 'p-6', 'sm:p-8', 'max-w-4xl', 'mb-8'); 
@@ -448,10 +487,6 @@
             }
         }
         
-        /**
-         * EXPORT IMAGE FUNCTION
-         * Uses html2canvas to take a snapshot of the grid container.
-         */
         window.exportImage = function() {
             const originalBg = gridContainer.style.backgroundColor;
             gridContainer.style.backgroundColor = "#ffffff";
@@ -477,6 +512,17 @@
             const countA = currentCount1;
             const countB = currentCount2;
             
+            // Get Multiplier value for A
+            const isMultEnabled = enableMultiplier.checked;
+            const multA = isMultEnabled ? clampMultiplier(multiplierInput1.value) : 1;
+            
+            // Toggle visibility of input
+            if(isMultEnabled) {
+                multiplierContainer.classList.remove('hidden');
+            } else {
+                multiplierContainer.classList.add('hidden');
+            }
+
             saveInputValues();
             applyDisplayMode(); 
             gridContainer.innerHTML = ''; 
@@ -484,22 +530,49 @@
             const colorB = colorToggleB.checked ? COLOR_ORANGE_HEX : COLOR_TEAL_HEX;
             const startBOnNewLine = lineToggleB.checked; 
             
+            
             const mainWrapper = document.createElement('div');
             mainWrapper.classList.add('flex', 'flex-wrap', 'justify-start', 'gap-3', 'w-full');
             gridContainer.appendChild(mainWrapper);
 
-            renderInputGrids(countA, COLOR_TEAL_HEX, mainWrapper);
+            // 1. Loop for Input A with Multiplier
+            if (isMultEnabled && multA > 1) {
+                // STACKED MODE for Multiplication
+                for(let i = 0; i < multA; i++) {
+                    if (i > 0) {
+                         // Horizontal separator for stacked items
+                         const separator = document.createElement('div');
+                         separator.classList.add('w-full', 'h-1', 'bg-gray-300', 'my-2', 'rounded');
+                         mainWrapper.appendChild(separator);
+                    }
+                    
+                    // Create a row wrapper to force stacking
+                    const rowWrapper = document.createElement('div');
+                    rowWrapper.classList.add('flex', 'flex-wrap', 'justify-start', 'gap-3', 'w-full');
+                    renderInputGrids(countA, COLOR_TEAL_HEX, rowWrapper);
+                    mainWrapper.appendChild(rowWrapper);
+                }
+            } else {
+                // NORMAL MODE (Side-by-side flow)
+                renderInputGrids(countA, COLOR_TEAL_HEX, mainWrapper);
+            }
 
+            // Apply Conditional Line Break for Input B
+            // If Multiplier is active (and >1), A is taking full width rows, so B naturally wraps.
+            // If Multiplier is OFF, we check standard conditions.
             const isATreatedAsBlock = countA >= 1000;
             const isBTreatedAsBlock = countB >= 1000; 
             const shouldForceBreak = startBOnNewLine || isATreatedAsBlock || isBTreatedAsBlock;
             
-            if (shouldForceBreak) {
+            // Only add explicit break if A wasn't already forcing full-width rows via multiplier
+            if (shouldForceBreak && (!isMultEnabled || multA <= 1)) {
                 const breaker = document.createElement('div');
                 breaker.classList.add('w-full', 'h-0', 'mt-6'); 
                 mainWrapper.appendChild(breaker);
             }
+            // If A was multiplied, B just flows after the last stack, which is what we want.
 
+            // Render Input B
             renderInputGrids(countB, colorB, mainWrapper);
         }
         
