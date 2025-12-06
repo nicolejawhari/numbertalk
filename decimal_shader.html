@@ -1,0 +1,517 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Decimals Shading Tool</title>
+    <!-- Load Tailwind CSS for modern styling -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Load html2canvas for export functionality -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+    <style>
+        /* ====================================
+           CSS STYLES 
+           ==================================== */
+        
+        /* Basic reset and font for readability */
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #f9fafb; /* bg-gray-50 */
+        }
+        
+        /* Ensures the grid cells maintain aspect ratio */
+        .grid-cell {
+            aspect-ratio: 1 / 1;
+            transition: background-color 0.2s;
+            background-color: #e5e7eb; /* Unshaded */
+            border: 1px solid rgba(255, 255, 255, 0.5); /* Lighter internal border */
+        }
+        
+        /* Shaded color (Teal) */
+        .grid-cell.shaded {
+            background-color: #0d9488;
+        }
+
+        /* Input focus color to match theme */
+        .input-focus:focus {
+            border-color: #14b8a6;
+            box-shadow: 0 0 0 3px rgba(20, 184, 166, 0.4);
+        }
+        /* Adjusted font size for easier typing on input */
+        #shadeInput1, #shadeInput2 {
+            font-size: 1.5rem; /* Larger font size */
+        }
+        
+        /* New class for the 10-unit whole number wrapper */
+        .ten-frame-wrapper {
+            /* Styles to visually group the 10 whole units */
+            border: 4px solid black;
+            border-radius: 1rem;
+            padding: 1rem;
+            margin-bottom: 1rem;
+            display: flex;
+            flex-wrap: wrap;
+            justify-content: flex-start;
+            gap: 0.75rem; /* Matches gap-3 */
+            background-color: #f3f4f6; /* Subtle background change */
+        }
+
+        /* Nav Link Styling */
+        .nav-link {
+            text-decoration: none;
+            color: #4b5563; /* gray-600 */
+            padding: 0.5rem 1rem;
+            border-radius: 0.375rem;
+            transition: all 0.2s;
+        }
+        .nav-link:hover {
+            background-color: #e5e7eb; /* gray-200 */
+            color: #111827; /* gray-900 */
+        }
+        .nav-link.active {
+            background-color: #0d9488; /* teal-600 */
+            color: white;
+            font-weight: bold;
+        }
+        /* Disabled link style for Fractions placeholder */
+        .nav-link.disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+    </style>
+</head>
+<body class="min-h-screen flex flex-col items-center justify-start">
+    
+    <!-- NAVIGATION BAR -->
+    <nav class="w-full bg-white shadow-sm border-b border-gray-200 sticky top-0 z-50">
+        <div class="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div class="flex justify-between h-16">
+                <div class="flex">
+                    <div class="flex-shrink-0 flex items-center">
+                        <span class="font-bold text-xl text-teal-700">Number Models</span>
+                    </div>
+                    <div class="ml-6 flex space-x-4 items-center">
+                        <!-- Link to the Whole Number Tool (Home) -->
+                        <a href="index.html" class="nav-link">Whole Numbers</a>
+                        <!-- Current Page -->
+                        <a href="decimal_shader.html" class="nav-link active">Decimals</a>
+                        <!-- Placeholder -->
+                        <a href="#" class="nav-link disabled" title="Coming Soon">Fractions</a>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </nav>
+
+    <!-- EXIT DISPLAY MODE BUTTON -->
+    <div id="exit-display-btn" class="fixed top-20 left-4 z-40 hidden">
+        <button onclick="exitDisplayMode()" class="bg-gray-700 text-white text-xs px-3 py-1 rounded-md shadow-lg opacity-70 hover:opacity-100 transition-opacity">
+            Exit Display Mode
+        </button>
+    </div>
+
+    <!-- MAIN CONTENT PADDING (Top padding adjusted for nav bar) -->
+    <div class="w-full flex flex-col items-center p-4 sm:p-8">
+
+        <!-- APP CONTAINER -->
+        <div id="app-container" class="w-full max-w-4xl bg-white p-6 sm:p-8 rounded-xl shadow-2xl transition-all duration-300 mb-8">
+            
+            <header class="text-center mb-6">
+                <h1 class="text-3xl font-extrabold text-gray-900">
+                    Decimals Shading Tool
+                </h1>
+                <p class="text-sm text-gray-500 mt-1">
+                    Visualizes decimal numbers (up to 1000.00) by grouping them into ones, tenths, and hundredths.
+                </p>
+            </header>
+
+            <!-- DUAL INPUT CONTROLS -->
+            <div id="input-controls" class="flex flex-col md:flex-row justify-center gap-6">
+                
+                <!-- Input 1 -->
+                <div class="flex-1 bg-gray-50 p-4 rounded-lg border border-gray-200">
+                    <label for="shadeInput1" class="block text-lg font-bold text-teal-700 mb-2">
+                        Input A <span id="shadeCountDisplay1" class="font-extrabold">(0.00)</span>
+                    </label>
+                    
+                    <input
+                        id="shadeInput1"
+                        type="text"
+                        min="0"
+                        max="1000"
+                        value="0.00"
+                        class="w-full p-3 border-2 border-gray-300 rounded-lg shadow-sm text-xl text-center font-mono transition-all duration-150 input-focus"
+                        placeholder="Enter A (0.00 - 1000.00)"
+                    />
+                    <p class="text-xs text-gray-400 mt-2 text-right">
+                        Max: 1000.00
+                    </p>
+                </div>
+
+                <!-- Input 2 -->
+                <div class="flex-1 bg-gray-50 p-4 rounded-lg border border-gray-200">
+                    <label for="shadeInput2" class="block text-lg font-bold text-teal-700 mb-2">
+                        Input B <span id="shadeCountDisplay2" class="font-extrabold">(0.00)</span>
+                    </label>
+                    
+                    <input
+                        id="shadeInput2"
+                        type="text"
+                        min="0"
+                        max="1000"
+                        value="0.00"
+                        class="w-full p-3 border-2 border-gray-300 rounded-lg shadow-sm text-xl text-center font-mono transition-all duration-150 input-focus"
+                        placeholder="Enter B (0.00 - 1000.00)"
+                    />
+                    <p class="text-xs text-gray-400 mt-2 text-right">
+                        Max: 1000.00
+                    </p>
+
+                    <!-- COLOR TOGGLE -->
+                    <div class="flex items-center mt-3">
+                        <input id="colorToggleB" type="checkbox" class="h-4 w-4 text-orange-600 rounded focus:ring-orange-500 border-gray-300" onchange="updateGrids()">
+                        <label for="colorToggleB" class="ml-2 block text-sm font-medium text-gray-700">
+                            Shade with Orange
+                        </label>
+                    </div>
+                    
+                    <!-- NEW LINE TOGGLE -->
+                    <div class="flex items-center mt-2">
+                        <input id="lineToggleB" type="checkbox" class="h-4 w-4 text-teal-600 rounded focus:ring-teal-500 border-gray-300" onchange="updateGrids()">
+                        <label for="lineToggleB" class="ml-2 block text-sm font-medium text-gray-700">
+                            Start Input B on new line
+                        </label>
+                    </div>
+
+                    <!-- HIDE INPUTS TOGGLE -->
+                    <div class="flex items-center mt-4 pt-3 border-t border-gray-200">
+                        <input id="hideInputsToggle" type="checkbox" class="h-4 w-4 text-gray-600 rounded focus:ring-gray-500 border-gray-300" onchange="updateGrids()">
+                        <label for="hideInputsToggle" class="ml-2 block text-sm font-bold text-gray-700">
+                            Classroom Mode
+                        </label>
+                    </div>
+
+                    <!-- EXPORT IMAGE BUTTON -->
+                    <div class="mt-4 pt-3 border-t border-gray-200">
+                        <button onclick="exportImage()" class="w-full bg-teal-600 hover:bg-teal-700 text-white font-bold py-2 px-4 rounded focus:outline-none focus:shadow-outline flex justify-center items-center gap-2 transition-colors">
+                            <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                            </svg>
+                            Export Image for Slides
+                        </button>
+                        <p class="text-xs text-gray-500 mt-1 text-center">Saves the current grid view as a PNG image.</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Grid Container -->
+        <div id="grid-container" class="w-full max-w-6xl p-4 flex flex-wrap justify-start gap-3 bg-white rounded-lg">
+            <!-- Grids will be generated here by JavaScript -->
+        </div>
+
+    </div>
+
+    <!-- ====================================
+         JAVASCRIPT LOGIC 
+         ==================================== -->
+    <script>
+        const GRID_ROWS = 10;
+        const GRID_COLS = 10;
+        const MAX_GRID_SIZE = GRID_ROWS * GRID_COLS;
+        const MAX_INPUT_DECIMAL = 1000; 
+        const MAX_VISUAL_COUNT = 100000; 
+
+        const COLOR_TEAL_HEX = '#0d9488';
+        const COLOR_ORANGE_HEX = '#fb923c';
+
+        const gridContainer = document.getElementById('grid-container');
+        const appContainer = document.getElementById('app-container');
+        const headerElement = document.querySelector('header');
+        const inputControls = document.getElementById('input-controls');
+        const exitDisplayButton = document.getElementById('exit-display-btn');
+        const navBar = document.querySelector('nav'); // Reference to Nav Bar
+
+        const shadeInput1 = document.getElementById('shadeInput1');
+        const shadeCountDisplay1 = document.getElementById('shadeCountDisplay1');
+        
+        const shadeInput2 = document.getElementById('shadeInput2');
+        const shadeCountDisplay2 = document.getElementById('shadeCountDisplay2');
+        
+        const colorToggleB = document.getElementById('colorToggleB');
+        const lineToggleB = document.getElementById('lineToggleB'); 
+        const hideInputsToggle = document.getElementById('hideInputsToggle'); 
+
+        let inputStringA = "0.00";
+        let inputStringB = "0.00";
+        
+        const THOUSAND_WRAPPER_CLASSES = [
+            'flex-none', 'shadow-md', 'rounded-xl', 'bg-gray-100', 
+            'border-2', 'border-gray-500', 
+            'w-full', 'sm:w-[48%]', 'md:w-[18%]'
+        ];
+        
+        const STANDARD_GRID_SIZE_CLASSES = ['p-3', 'bg-white', 'rounded-xl', 'shadow-lg', 'border-2', 'border-black', 'w-full', 'sm:w-[48%]', 'md:w-[31%]', 'lg:w-[18%]', 'flex-shrink-0'];
+        const COMPACT_GRID_SIZE_CLASSES = ['w-[18%]', 'p-3', 'bg-white', 'rounded-xl', 'shadow-lg', 'border-2', 'border-black', 'flex-shrink-0'];
+
+        function clampAndParseDecimalValue(value) {
+            let cleanValue = value.replace(/[^\d.]/g, ''); 
+            const parts = cleanValue.split('.');
+            if (parts.length > 2) {
+                cleanValue = parts[0] + '.' + parts.slice(1).join('');
+            }
+            let parsedString = cleanValue;
+            if (cleanValue.endsWith('.')) {
+                parsedString = cleanValue.slice(0, -1);
+            }
+            let num = parseFloat(parsedString);
+            if (isNaN(num) || num < 0) {
+                num = 0;
+            } 
+            if (num > MAX_INPUT_DECIMAL) {
+                num = MAX_INPUT_DECIMAL;
+            }
+            return parseFloat(num.toFixed(2));
+        }
+
+        function convertDecimalToVisualCount(decimalValue) {
+            return Math.round(decimalValue * 100);
+        }
+        
+        function calculateGridData(totalCount) {
+            if (totalCount === 0) return [];
+            const fullGrids = Math.floor(totalCount / 100);
+            const remainder = totalCount % 100;
+            const gridsToRender = [];
+            for (let i = 0; i < fullGrids; i++) {
+                gridsToRender.push({ count: 100 });
+            }
+            if (remainder > 0) {
+                gridsToRender.push({ count: remainder });
+            }
+            return gridsToRender;
+        }
+
+        function createAndShadeGrid(shadeCount, isCompact = false, shadedColor = COLOR_TEAL_HEX) {
+            const gridWrapper = document.createElement('div');
+            if (isCompact) {
+                gridWrapper.classList.add('p-px'); 
+            } else {
+                gridWrapper.classList.add(...STANDARD_GRID_SIZE_CLASSES);
+            }
+            const innerGrid = document.createElement('div');
+            const gapClass = isCompact ? 'gap-px' : 'gap-0.5';
+            innerGrid.classList.add('grid', gapClass, 'w-full', 'aspect-square', 'p-px', 'bg-gray-100', 'rounded-sm'); 
+            innerGrid.style.gridTemplateColumns = `repeat(${GRID_COLS}, minmax(0, 1fr))`;
+
+            for (let standardIndex = 0; standardIndex < MAX_GRID_SIZE; standardIndex++) {
+                const cell = document.createElement('div');
+                const cellBorderClass = isCompact ? 'border-none' : 'border-gray-300/50';
+                cell.classList.add('grid-cell', 'rounded-sm', 'border', cellBorderClass);
+                
+                const r = Math.floor(standardIndex / GRID_COLS);
+                const c = standardIndex % GRID_COLS;
+                const cellsInPrecedingColumns = c * GRID_ROWS; 
+                const positionInColumn = (GRID_ROWS - 1) - r; 
+                const rotatedShadingIndex = cellsInPrecedingColumns + positionInColumn;
+                
+                const isShaded = rotatedShadingIndex < shadeCount;
+                if (isShaded) {
+                    cell.style.backgroundColor = shadedColor;
+                }
+                innerGrid.appendChild(cell);
+            }
+            gridWrapper.appendChild(innerGrid);
+            return gridWrapper;
+        }
+
+        const renderSingleThousandsBlock = (shadedColor = COLOR_TEAL_HEX) => {
+            const blockWrapper = document.createElement('div');
+            blockWrapper.classList.add(...THOUSAND_WRAPPER_CLASSES);
+            const innerGridContainer = document.createElement('div');
+            innerGridContainer.classList.add('grid', 'gap-1', 'p-1'); 
+            innerGridContainer.style.gridTemplateColumns = `repeat(5, 1fr)`;
+            blockWrapper.appendChild(innerGridContainer);
+            for (let i = 0; i < 10; i++) {
+                innerGridContainer.appendChild(createAndShadeGrid(100, true, shadedColor));
+            }
+            return blockWrapper;
+        };
+        
+        function renderInputGrids(scaledCount, color, container) {
+            if (scaledCount === 0) return;
+            const K_BLOCKS_PER_10K = 10;
+            const fullThousands = Math.floor(scaledCount / 1000);
+            const remainder = scaledCount % 1000;
+            let blocksToRender = [];
+            
+            for (let i = 0; i < fullThousands; i++) {
+                blocksToRender.push(renderSingleThousandsBlock(color));
+            }
+            
+            let currentBlockIndex = 0;
+            while (currentBlockIndex < blocksToRender.length) {
+                if (currentBlockIndex % K_BLOCKS_PER_10K === 0 && (blocksToRender.length - currentBlockIndex) >= K_BLOCKS_PER_10K) {
+                    const tenKWrapper = document.createElement('div');
+                    tenKWrapper.classList.add('w-full', 'border-4', 'border-black', 'rounded-xl', 'p-3', 'bg-gray-100', 'shadow-xl', 'my-2', 'mx-auto', 'max-w-5xl'); 
+                    const internalFlow = document.createElement('div');
+                    internalFlow.classList.add('flex', 'flex-wrap', 'justify-start', 'gap-3');
+                    for (let k = 0; k < K_BLOCKS_PER_10K; k++) {
+                        internalFlow.appendChild(blocksToRender[currentBlockIndex + k]);
+                    }
+                    tenKWrapper.appendChild(internalFlow);
+                    container.appendChild(tenKWrapper);
+                    currentBlockIndex += K_BLOCKS_PER_10K; 
+                } else {
+                    container.appendChild(blocksToRender[currentBlockIndex]);
+                    currentBlockIndex++;
+                }
+            }
+            
+            if (remainder > 0) {
+                const dataRemainder = calculateGridData(remainder);
+                dataRemainder.forEach(gridData => {
+                    container.appendChild(createAndShadeGrid(gridData.count, false, color));
+                });
+            }
+        }
+
+        function saveInputValues() {
+            localStorage.setItem('decimalShaderInputTextA', shadeInput1.value);
+            localStorage.setItem('decimalShaderInputTextB', shadeInput2.value);
+            localStorage.setItem('decimalShaderColorB', colorToggleB.checked);
+            localStorage.setItem('decimalShaderLineB', lineToggleB.checked);
+            localStorage.setItem('decimalShaderHideInputs', hideInputsToggle.checked);
+        }
+        
+        function loadInputValues() {
+            const savedTextA = localStorage.getItem('decimalShaderInputTextA');
+            const savedTextB = localStorage.getItem('decimalShaderInputTextB');
+            const savedColorB = localStorage.getItem('decimalShaderColorB');
+            const savedLineB = localStorage.getItem('decimalShaderLineB');
+            const savedHideInputs = localStorage.getItem('decimalShaderHideInputs');
+            
+            shadeInput1.value = savedTextA !== null ? savedTextA : "0.00";
+            shadeInput2.value = savedTextB !== null ? savedTextB : "0.00";
+            
+            if (savedColorB !== null) colorToggleB.checked = (savedColorB === 'true');
+            if (savedLineB !== null) lineToggleB.checked = (savedLineB === 'true');
+            if (savedHideInputs !== null) hideInputsToggle.checked = (savedHideInputs === 'true');
+            
+            updateDisplayCounts();
+        }
+        
+        function updateDisplayCounts() {
+            const valA = clampAndParseDecimalValue(shadeInput1.value);
+            const valB = clampAndParseDecimalValue(shadeInput2.value);
+            shadeCountDisplay1.textContent = `(${valA.toFixed(2)})`;
+            shadeCountDisplay2.textContent = `(${valB.toFixed(2)})`;
+        }
+
+        window.exitDisplayMode = function() {
+            const valA = clampAndParseDecimalValue(shadeInput1.value);
+            const valB = clampAndParseDecimalValue(shadeInput2.value);
+            shadeInput1.value = valA.toFixed(2);
+            shadeInput2.value = valB.toFixed(2);
+            saveInputValues(); 
+            const urlParams = new URLSearchParams(window.location.search);
+            if (urlParams.get('display') === 'true') {
+                const newUrl = window.location.origin + window.location.pathname;
+                window.location.href = newUrl;
+            } else {
+                localStorage.setItem('decimalShaderHideInputs', 'false');
+                window.location.reload();
+            }
+        };
+
+        function applyDisplayMode() {
+            const urlParams = new URLSearchParams(window.location.search);
+            const isUrlLocked = urlParams.get('display') === 'true';
+            const isDisplayMode = isUrlLocked || hideInputsToggle.checked;
+            
+            if (isDisplayMode) {
+                navBar.classList.add('hidden'); // Hide Nav Bar
+                headerElement.classList.add('hidden'); 
+                inputControls.classList.add('hidden');
+                appContainer.classList.remove('bg-white', 'shadow-2xl', 'p-6', 'sm:p-8', 'mb-8', 'max-w-4xl'); 
+                appContainer.classList.add('bg-transparent', 'shadow-none', 'p-0', 'mb-0', 'max-w-7xl'); 
+                gridContainer.classList.remove('max-w-6xl');
+                exitDisplayButton.classList.remove('hidden');
+                if (isUrlLocked) hideInputsToggle.disabled = true;
+            } else {
+                navBar.classList.remove('hidden'); // Show Nav Bar
+                headerElement.classList.remove('hidden'); 
+                inputControls.classList.remove('hidden');
+                appContainer.classList.add('bg-white', 'shadow-2xl', 'p-6', 'sm:p-8', 'max-w-4xl', 'mb-8'); 
+                appContainer.classList.remove('bg-transparent', 'shadow-none', 'p-0', 'max-w-7xl'); 
+                gridContainer.classList.add('max-w-6xl');
+                hideInputsToggle.disabled = false;
+                exitDisplayButton.classList.add('hidden');
+            }
+        }
+        
+        window.exportImage = function() {
+            const originalBg = gridContainer.style.backgroundColor;
+            gridContainer.style.backgroundColor = "#ffffff";
+            html2canvas(gridContainer, {
+                scale: 2, 
+                backgroundColor: "#ffffff",
+                logging: false
+            }).then(canvas => {
+                const link = document.createElement('a');
+                link.download = 'decimal-model.png';
+                link.href = canvas.toDataURL('image/png');
+                link.click();
+                gridContainer.style.backgroundColor = originalBg;
+            }).catch(err => {
+                console.error("Export failed:", err);
+                gridContainer.style.backgroundColor = originalBg;
+                alert("Could not export image. Please ensure you are not in a restricted iframe environment.");
+            });
+        };
+
+        window.updateGrids = function() {
+            const valA_decimal = clampAndParseDecimalValue(shadeInput1.value);
+            const valB_decimal = clampAndParseDecimalValue(shadeInput2.value);
+            
+            const countA = convertDecimalToVisualCount(valA_decimal);
+            const countB = convertDecimalToVisualCount(valB_decimal);
+            
+            updateDisplayCounts();
+            saveInputValues();
+            applyDisplayMode(); 
+            gridContainer.innerHTML = ''; 
+
+            const colorB = colorToggleB.checked ? COLOR_ORANGE_HEX : COLOR_TEAL_HEX;
+            const startBOnNewLine = lineToggleB.checked; 
+            
+            const mainWrapper = document.createElement('div');
+            mainWrapper.classList.add('flex', 'flex-wrap', 'justify-start', 'gap-3', 'w-full');
+            gridContainer.appendChild(mainWrapper);
+
+            renderInputGrids(countA, COLOR_TEAL_HEX, mainWrapper);
+
+            const isATreatedAsBlock = countA >= 1000; 
+            const isBTreatedAsBlock = countB >= 1000; 
+            const shouldForceBreak = startBOnNewLine || isATreatedAsBlock || isBTreatedAsBlock;
+            
+            if (shouldForceBreak) {
+                const breaker = document.createElement('div');
+                breaker.classList.add('w-full', 'h-0', 'mt-6'); 
+                mainWrapper.appendChild(breaker);
+            }
+
+            renderInputGrids(countB, colorB, mainWrapper);
+        }
+        
+        function handleInput(event) {
+            window.updateGrids();
+        }
+
+        loadInputValues();
+        shadeInput1.addEventListener('input', handleInput);
+        shadeInput2.addEventListener('input', handleInput);
+        updateGrids(); 
+    </script>
+</body>
+</html>
