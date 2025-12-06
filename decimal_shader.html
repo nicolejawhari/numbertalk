@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Decimals Shading Tool</title>
+    <title>Decimal Shading Tool</title>
     <!-- Load Tailwind CSS for modern styling -->
     <script src="https://cdn.tailwindcss.com"></script>
     <!-- Load html2canvas for export functionality -->
@@ -103,14 +103,14 @@
         </div>
     </nav>
 
-    <!-- EXIT DISPLAY MODE BUTTON -->
+    <!-- NEW: EXIT DISPLAY MODE BUTTON -->
     <div id="exit-display-btn" class="fixed top-20 left-4 z-40 hidden">
         <button onclick="exitDisplayMode()" class="bg-gray-700 text-white text-xs px-3 py-1 rounded-md shadow-lg opacity-70 hover:opacity-100 transition-opacity">
             Exit Display Mode
         </button>
     </div>
 
-    <!-- MAIN CONTENT PADDING (Top padding adjusted for nav bar) -->
+    <!-- MAIN CONTENT PADDING -->
     <div class="w-full flex flex-col items-center p-4 sm:p-8">
 
         <!-- APP CONTAINER -->
@@ -118,7 +118,7 @@
             
             <header class="text-center mb-6">
                 <h1 class="text-3xl font-extrabold text-gray-900">
-                    Decimals Shading Tool
+                    Decimal Shading Tool
                 </h1>
                 <p class="text-sm text-gray-500 mt-1">
                     Visualizes decimal numbers (up to 1000.00) by grouping them into ones, tenths, and hundredths.
@@ -146,6 +146,21 @@
                     <p class="text-xs text-gray-400 mt-2 text-right">
                         Max: 1000.00
                     </p>
+
+                    <!-- MULTIPLIER TOGGLE & INPUT -->
+                    <div class="mt-4 pt-3 border-t border-gray-200">
+                        <div class="flex items-center mb-2">
+                            <input id="enableMultiplier" type="checkbox" class="h-4 w-4 text-teal-600 rounded focus:ring-teal-500 border-gray-300" onchange="updateGrids()">
+                            <label for="enableMultiplier" class="ml-2 block text-sm font-bold text-gray-700">
+                                Multiply Input A
+                            </label>
+                        </div>
+                        
+                        <div id="multiplierContainer" class="hidden flex items-center gap-2 bg-gray-100 p-2 rounded">
+                            <label for="multiplierInput1" class="text-sm font-bold text-gray-700">Multiply by:</label>
+                            <input id="multiplierInput1" type="number" min="1" max="10" value="1" class="w-16 p-1 border border-gray-300 rounded text-center text-lg font-bold text-teal-700" onchange="updateGrids()">
+                        </div>
+                    </div>
                 </div>
 
                 <!-- Input 2 -->
@@ -230,11 +245,14 @@
         const headerElement = document.querySelector('header');
         const inputControls = document.getElementById('input-controls');
         const exitDisplayButton = document.getElementById('exit-display-btn');
-        const navBar = document.querySelector('nav'); // Reference to Nav Bar
+        const navBar = document.querySelector('nav');
 
         const shadeInput1 = document.getElementById('shadeInput1');
         const shadeCountDisplay1 = document.getElementById('shadeCountDisplay1');
-        
+        const multiplierInput1 = document.getElementById('multiplierInput1');
+        const multiplierContainer = document.getElementById('multiplierContainer');
+        const enableMultiplier = document.getElementById('enableMultiplier');
+
         const shadeInput2 = document.getElementById('shadeInput2');
         const shadeCountDisplay2 = document.getElementById('shadeCountDisplay2');
         
@@ -242,17 +260,24 @@
         const lineToggleB = document.getElementById('lineToggleB'); 
         const hideInputsToggle = document.getElementById('hideInputsToggle'); 
 
+        // Initial state variables
         let inputStringA = "0.00";
         let inputStringB = "0.00";
         
+        // Classes for the special 1000 block (reduced prominence)
         const THOUSAND_WRAPPER_CLASSES = [
             'flex-none', 'shadow-md', 'rounded-xl', 'bg-gray-100', 
             'border-2', 'border-gray-500', 
             'w-full', 'sm:w-[48%]', 'md:w-[18%]'
         ];
         
+        // Sizing classes for individual 1.0 units (Large and uniform)
+        // This ensures 5 large grids fit per row, matching the whole number tool's logic.
         const STANDARD_GRID_SIZE_CLASSES = ['p-3', 'bg-white', 'rounded-xl', 'shadow-lg', 'border-2', 'border-black', 'w-full', 'sm:w-[48%]', 'md:w-[31%]', 'lg:w-[18%]', 'flex-shrink-0'];
+        
+        // Sizing for units *inside* the 10-frame (must be smaller to fit 5x2)
         const COMPACT_GRID_SIZE_CLASSES = ['w-[18%]', 'p-3', 'bg-white', 'rounded-xl', 'shadow-lg', 'border-2', 'border-black', 'flex-shrink-0'];
+
 
         function clampAndParseDecimalValue(value) {
             let cleanValue = value.replace(/[^\d.]/g, ''); 
@@ -272,6 +297,13 @@
                 num = MAX_INPUT_DECIMAL;
             }
             return parseFloat(num.toFixed(2));
+        }
+
+        function clampMultiplier(value) {
+            let num = parseInt(value, 10);
+            if (isNaN(num) || num < 1) return 1;
+            if (num > 10) return 10;
+            return num;
         }
 
         function convertDecimalToVisualCount(decimalValue) {
@@ -340,45 +372,35 @@
         
         function renderInputGrids(scaledCount, color, container) {
             if (scaledCount === 0) return;
-            const K_BLOCKS_PER_10K = 10;
-            const fullThousands = Math.floor(scaledCount / 1000);
+
+            // In Decimal mode:
+            // 100 units = 1.00
+            // 1000 units = 10.00 (This is the grouping threshold)
+            
+            const K_BLOCKS_PER_10K = 10; 
+            
+            const fullTenUnits = Math.floor(scaledCount / 1000); 
             const remainder = scaledCount % 1000;
+
             let blocksToRender = [];
             
-            for (let i = 0; i < fullThousands; i++) {
-                blocksToRender.push(renderSingleThousandsBlock(color));
-            }
-            
-            let currentBlockIndex = 0;
-            while (currentBlockIndex < blocksToRender.length) {
-                if (currentBlockIndex % K_BLOCKS_PER_10K === 0 && (blocksToRender.length - currentBlockIndex) >= K_BLOCKS_PER_10K) {
-                    const tenKWrapper = document.createElement('div');
-                    tenKWrapper.classList.add('w-full', 'border-4', 'border-black', 'rounded-xl', 'p-3', 'bg-gray-100', 'shadow-xl', 'my-2', 'mx-auto', 'max-w-5xl'); 
-                    const internalFlow = document.createElement('div');
-                    internalFlow.classList.add('flex', 'flex-wrap', 'justify-start', 'gap-3');
-                    for (let k = 0; k < K_BLOCKS_PER_10K; k++) {
-                        internalFlow.appendChild(blocksToRender[currentBlockIndex + k]);
-                    }
-                    tenKWrapper.appendChild(internalFlow);
-                    container.appendChild(tenKWrapper);
-                    currentBlockIndex += K_BLOCKS_PER_10K; 
-                } else {
-                    container.appendChild(blocksToRender[currentBlockIndex]);
-                    currentBlockIndex++;
-                }
+            for (let i = 0; i < fullTenUnits; i++) {
+                container.appendChild(renderSingleThousandsBlock(color));
             }
             
             if (remainder > 0) {
-                const dataRemainder = calculateGridData(remainder);
-                dataRemainder.forEach(gridData => {
-                    container.appendChild(createAndShadeGrid(gridData.count, false, color));
-                });
+                 const dataRemainder = calculateGridData(remainder);
+                 dataRemainder.forEach(gridData => {
+                     container.appendChild(createAndShadeGrid(gridData.count, false, color));
+                 });
             }
         }
 
         function saveInputValues() {
             localStorage.setItem('decimalShaderInputTextA', shadeInput1.value);
             localStorage.setItem('decimalShaderInputTextB', shadeInput2.value);
+            localStorage.setItem('decimalShaderMultA', multiplierInput1.value);
+            localStorage.setItem('decimalShaderEnableMult', enableMultiplier.checked);
             localStorage.setItem('decimalShaderColorB', colorToggleB.checked);
             localStorage.setItem('decimalShaderLineB', lineToggleB.checked);
             localStorage.setItem('decimalShaderHideInputs', hideInputsToggle.checked);
@@ -387,12 +409,20 @@
         function loadInputValues() {
             const savedTextA = localStorage.getItem('decimalShaderInputTextA');
             const savedTextB = localStorage.getItem('decimalShaderInputTextB');
+            const savedMultA = localStorage.getItem('decimalShaderMultA');
+            const savedEnableMult = localStorage.getItem('decimalShaderEnableMult');
             const savedColorB = localStorage.getItem('decimalShaderColorB');
             const savedLineB = localStorage.getItem('decimalShaderLineB');
             const savedHideInputs = localStorage.getItem('decimalShaderHideInputs');
             
             shadeInput1.value = savedTextA !== null ? savedTextA : "0.00";
             shadeInput2.value = savedTextB !== null ? savedTextB : "0.00";
+            if (savedMultA !== null) multiplierInput1.value = savedMultA;
+            if (savedEnableMult !== null) {
+                enableMultiplier.checked = (savedEnableMult === 'true');
+                if(enableMultiplier.checked) multiplierContainer.classList.remove('hidden');
+                else multiplierContainer.classList.add('hidden');
+            }
             
             if (savedColorB !== null) colorToggleB.checked = (savedColorB === 'true');
             if (savedLineB !== null) lineToggleB.checked = (savedLineB === 'true');
@@ -430,7 +460,7 @@
             const isDisplayMode = isUrlLocked || hideInputsToggle.checked;
             
             if (isDisplayMode) {
-                navBar.classList.add('hidden'); // Hide Nav Bar
+                navBar.classList.add('hidden'); 
                 headerElement.classList.add('hidden'); 
                 inputControls.classList.add('hidden');
                 appContainer.classList.remove('bg-white', 'shadow-2xl', 'p-6', 'sm:p-8', 'mb-8', 'max-w-4xl'); 
@@ -439,7 +469,7 @@
                 exitDisplayButton.classList.remove('hidden');
                 if (isUrlLocked) hideInputsToggle.disabled = true;
             } else {
-                navBar.classList.remove('hidden'); // Show Nav Bar
+                navBar.classList.remove('hidden'); 
                 headerElement.classList.remove('hidden'); 
                 inputControls.classList.remove('hidden');
                 appContainer.classList.add('bg-white', 'shadow-2xl', 'p-6', 'sm:p-8', 'max-w-4xl', 'mb-8'); 
@@ -476,7 +506,16 @@
             
             const countA = convertDecimalToVisualCount(valA_decimal);
             const countB = convertDecimalToVisualCount(valB_decimal);
+
+            const isMultEnabled = enableMultiplier.checked;
+            const multA = isMultEnabled ? clampMultiplier(multiplierInput1.value) : 1;
             
+            if(isMultEnabled) {
+                multiplierContainer.classList.remove('hidden');
+            } else {
+                multiplierContainer.classList.add('hidden');
+            }
+
             updateDisplayCounts();
             saveInputValues();
             applyDisplayMode(); 
@@ -489,18 +528,35 @@
             mainWrapper.classList.add('flex', 'flex-wrap', 'justify-start', 'gap-3', 'w-full');
             gridContainer.appendChild(mainWrapper);
 
-            renderInputGrids(countA, COLOR_TEAL_HEX, mainWrapper);
+            // Render A with Multiplier
+            if (isMultEnabled && multA > 1) {
+                for(let i = 0; i < multA; i++) {
+                    if (i > 0) {
+                         const separator = document.createElement('div');
+                         separator.classList.add('w-full', 'h-1', 'bg-gray-300', 'my-2', 'rounded');
+                         mainWrapper.appendChild(separator);
+                    }
+                    
+                    const rowWrapper = document.createElement('div');
+                    rowWrapper.classList.add('flex', 'flex-wrap', 'justify-start', 'gap-3', 'w-full');
+                    renderInputGrids(countA, COLOR_TEAL_HEX, rowWrapper);
+                    mainWrapper.appendChild(rowWrapper);
+                }
+            } else {
+                renderInputGrids(countA, COLOR_TEAL_HEX, mainWrapper);
+            }
 
             const isATreatedAsBlock = countA >= 1000; 
             const isBTreatedAsBlock = countB >= 1000; 
             const shouldForceBreak = startBOnNewLine || isATreatedAsBlock || isBTreatedAsBlock;
             
-            if (shouldForceBreak) {
+            if (shouldForceBreak && (!isMultEnabled || multA <= 1)) {
                 const breaker = document.createElement('div');
                 breaker.classList.add('w-full', 'h-0', 'mt-6'); 
                 mainWrapper.appendChild(breaker);
             }
 
+            // Render B
             renderInputGrids(countB, colorB, mainWrapper);
         }
         
